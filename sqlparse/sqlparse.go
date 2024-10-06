@@ -8,20 +8,24 @@ import (
 )
 
 type Parse struct {
-	Query           string
-	Catalog         string
-	DbName          string
-	ParseTables     []Table
-	SelectTableName []string
-	InsertTableName []string
-	CreatTableName  []string
-	DropTableName   []string
-	WithTablaName   []string
-	FromTableName   []string
-	JoinTableName   []string
-	ExtractTime     []string
-	ErrorTables     []string
-	DirtyData       []string
+	Query             string
+	Catalog           string
+	DbName            string
+	ParseTables       []Table
+	SelectTableName   []string
+	AlterTableName    []string
+	InsertTableName   []string
+	CreatTableName    []string
+	DropTableName     []string
+	WithTablaName     []string
+	FromTableName     []string
+	JoinTableName     []string
+	ExtractTime       []string
+	ErrorTables       []string
+	DirtyData         []string
+	DeleteTableName   []string
+	UpdateTableName   []string
+	TruncateTableName []string
 }
 
 type Table struct {
@@ -180,8 +184,28 @@ func (p *Parse) getTableNames(action int) {
 		parseReplaceRegexp6 := newRegexp("(?i)join`", "`")
 		tmpTableNames := regexpReplaceAllStrings(result1, parseReplaceRegexp5, parseReplaceRegexp6, parseReplaceRegexp3)
 		tableNames = append(tableNames, tmpTableNames...)
-
 	case Select:
+	case Alter:
+		parseFindRegexp, _ := regexp.Compile("(?i)(^|\\s+|\\\\n)alter\\s+(table|view|materialized\\s+view)+(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		result := findAllStrings(p.Query, parseFindRegexp)
+		parseReplaceRegexp := newRegexp("(?i)(^|\\s+|\\\\n)alter\\s+(table|view|materialized\\s+view)+\\s*", "")
+		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp)
+	case Delete:
+		parseFindRegexp, _ := regexp.Compile("(?i)(^|\\s+|\\\\n)delete\\s+from(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		result := findAllStrings(p.Query, parseFindRegexp)
+		parseReplaceRegexp := newRegexp("(?i)(^|\\s+|\\\\n)delete\\s+from\\s*", "")
+		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp)
+	case Update:
+		parseFindRegexp, _ := regexp.Compile("(?i)(^|\\s+|\\\\n)update(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		result := findAllStrings(p.Query, parseFindRegexp)
+		parseReplaceRegexp1 := newRegexp("(?i)((^|\\s+|\\\\n)update\\s+|\\s*)", "")
+		parseReplaceRegexp2 := newRegexp("(?i)(^|\\s+|\\\\n)update`", "`")
+		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp1, parseReplaceRegexp2)
+	case Truncate:
+		parseFindRegexp, _ := regexp.Compile("(?i)(^|\\s+|\\\\n)truncate\\s+table(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		result := findAllStrings(p.Query, parseFindRegexp)
+		parseReplaceRegexp := newRegexp("(?i)(^|\\s+|\\\\n)truncate\\s+table\\s*", "")
+		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp)
 	default:
 		return
 	}
@@ -215,6 +239,22 @@ func (p *Parse) GetInsertTables() {
 	p.getTableNames(Insert)
 }
 
+func (p *Parse) GetUpdateTables() {
+	p.getTableNames(Update)
+}
+
+func (p *Parse) GetDeleteTables() {
+	p.getTableNames(Delete)
+}
+
+func (p *Parse) GetTruncateTables() {
+	p.getTableNames(Truncate)
+}
+
+func (p *Parse) GetAlterTables() {
+	p.getTableNames(Alter)
+}
+
 func (p *Parse) initDirtyData() {
 	p.DirtyData = []string{"dual", "unnest"}
 }
@@ -225,7 +265,11 @@ func (p *Parse) InitAllUseTable(isInitDirtyData bool) {
 	}
 	p.StmtClearAnnotation()
 	p.GetSelectFromTables()
+	p.GetAlterTables()
 	p.GetCreateTables()
 	p.GetDropTables()
 	p.GetInsertTables()
+	p.GetUpdateTables()
+	p.GetDeleteTables()
+	p.GetTruncateTables()
 }

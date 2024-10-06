@@ -12,9 +12,13 @@ const (
 	From        = 98
 	Join        = 99
 	Select      = 100
+	Alter       = 101
 	Insert      = 102
 	Create      = 103
 	Drop        = 104
+	Update      = 105
+	Delete      = 106
+	Truncate    = 107
 )
 
 func (p *Parse) assignment(code int, tbl []string) {
@@ -40,6 +44,14 @@ func (p *Parse) assignment(code int, tbl []string) {
 		p.CreatTableName = tbl
 	case Drop:
 		p.DropTableName = tbl
+	case Alter:
+		p.AlterTableName = tbl
+	case Delete:
+		p.DeleteTableName = tbl
+	case Update:
+		p.UpdateTableName = tbl
+	case Truncate:
+		p.TruncateTableName = tbl
 	default:
 		return
 	}
@@ -49,7 +61,7 @@ func (p *Parse) assignment(code int, tbl []string) {
 
 func (p *Parse) assign(code int, tbl []string) {
 	switch code {
-	case Create, Drop, Insert, Select:
+	case Create, Drop, Insert, Select, Alter, Delete, Update, Truncate:
 		i := 0
 		for _, table := range tbl {
 			var t Table
