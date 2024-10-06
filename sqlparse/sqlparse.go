@@ -63,7 +63,7 @@ func (p *Parse) StmtClearAnnotation() {
 	//replaceRegexp, _ := regexp.Compile(`(--.*$|/\*([^*]|\*[^/])*\*/|\n)`)
 	replaceRegexp1, _ := regexp.Compile("(\\\\n|/\\*([^*]|\\*[^/])*\\*/)")
 
-	tmpQuery := replaceRegexp1.ReplaceAllString(p.Query, "")
+	tmpQuery := replaceRegexp1.ReplaceAllString(p.Query, "\n")
 
 	replaceRegexp2, _ := regexp.Compile("--.*$")
 
@@ -128,10 +128,10 @@ func (p *Parse) getTableNames(action int) {
 		parseReplaceRegexp := newRegexp("(?i)extract\\s*\\([^)]+from\\s*", "")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp)
 	case From:
-		parseFindRegexp, _ := regexp.Compile("(?i)from(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		parseFindRegexp, _ := regexp.Compile("(?i)(^|\\s+|\\\\n)from(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
 		result := findAllStrings(p.Query, parseFindRegexp)
-		parseReplaceRegexp1 := newRegexp("(?i)(from\\s+|\\s*)", "")
-		parseReplaceRegexp2 := newRegexp("(?i)from`", "`")
+		parseReplaceRegexp1 := newRegexp("(?i)((^|\\s+|\\\\n)from\\s+|\\s*)", "")
+		parseReplaceRegexp2 := newRegexp("(?i)(^|\\s+|\\\\n)from`", "`")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp1, parseReplaceRegexp2)
 	case With:
 		parseFindRegexp, _ := regexp.Compile("(?i)(with(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\([^)]+\\))?\\s+as\\s*\\(|,\\s*([a-z0-9_]+|`[^`]+`)(\\s*\\([^)]+\\))?\\s+as\\s*\\()")

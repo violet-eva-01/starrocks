@@ -25,12 +25,14 @@ func TestParse_StmtClearAnnotation(t *testing.T) {
 	//匹配率:啥啥啥
 	//*/ dt as ( xxx )
 	//`
-	//querySQL := `\nwith \nat_20_item as (select xxxxx)`
-	querySQL := "from aa_bb_cc.aa_bb_cc a , aa_bb_cc.aa_bb_cc b"
+	querySQL := `\nwith \nat_20_item as (select xxxxx)`
+	//querySQL := "from aa_bb_cc.aa_bb_cc a , aa_bb_cc.aa_bb_cc b"
+	//querySQL := "select distinct `ab_from` as `ac_from` from (select xxx,aaaa,bbbb) "
+	//querySQL := "select distinct ab_from as ac_from from `zz`.`bb`.`aa`"
 	newParse := NewParse(querySQL, "", "violet", "")
 	newParse.StmtClearAnnotation()
 	fmt.Println(newParse.Query)
-	newParse.getTableNames(Join)
-	fmt.Println(newParse.JoinTableName)
+	newParse.getTableNames(From)
+	fmt.Println(newParse.FromTableName)
 
 }
