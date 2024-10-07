@@ -7,10 +7,10 @@ import (
 )
 
 const (
-	ExtractTime = 96
-	With        = 97
-	From        = 98
-	Join        = 99
+	extractTime = 96
+	with        = 97
+	from        = 98
+	join        = 99
 	Select      = 100
 	Alter       = 101
 	Insert      = 102
@@ -26,24 +26,25 @@ func (p *Parse) assignment(code int, tbl []string) {
 	tbl = util.RemoveRepeatElementAndToLower(tbl)
 
 	switch code {
-	case ExtractTime:
-		p.ExtractTime = tbl
-	case With:
-		p.WithTablaName = tbl
-	case From:
-		p.FromTableName = tbl
-	case Join:
-		p.JoinTableName = tbl
+	case extractTime:
+		p.extractTime = tbl
+	case with:
+		p.withTablaName = tbl
+	case from:
+		p.fromTableName = tbl
+	case join:
+		p.joinTableName = tbl
 	case Select:
-		otherArr := append(p.ExtractTime, p.DirtyData...)
+		otherArr := append(p.extractTime, p.selectExcludeTables...)
 		otherArr = append(otherArr, p.DeleteTableName...)
-		tbl = util.RemoveCoincideElement(append(p.FromTableName, p.JoinTableName...), append(p.WithTablaName, otherArr...))
+		tbl = util.RemoveCoincideElement(append(p.fromTableName, p.joinTableName...), append(p.withTablaName, otherArr...))
 		p.SelectTableName = tbl
 	case Insert:
 		p.InsertTableName = tbl
 	case Create:
 		p.CreatTableName = tbl
 	case Drop:
+		tbl = util.RemoveIfExistsElement(tbl, p.dropExcludeTables)
 		p.DropTableName = tbl
 	case Alter:
 		p.AlterTableName = tbl

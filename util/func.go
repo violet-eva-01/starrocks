@@ -24,6 +24,25 @@ func RemoveCoincideElement(list1, list2 []string) []string {
 	return result
 }
 
+func IfExists(str string, strArray []string) bool {
+	for _, v := range strArray {
+		if strings.Contains(str, v) {
+			return true
+		}
+	}
+	return false
+}
+
+func RemoveIfExistsElement(list1, list2 []string) []string {
+	result := make([]string, 0)
+	for _, i := range list1 {
+		if !IfExists(i, list2) {
+			result = append(result, i)
+		}
+	}
+	return result
+}
+
 func RemoveRepeatElement(list []string) []string {
 	temp := make(map[string]struct{})
 	index := 0

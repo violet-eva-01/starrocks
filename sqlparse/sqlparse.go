@@ -8,24 +8,25 @@ import (
 )
 
 type Parse struct {
-	Query             string
-	Catalog           string
-	DbName            string
-	ParseTables       []Table
-	SelectTableName   []string
-	AlterTableName    []string
-	InsertTableName   []string
-	CreatTableName    []string
-	DropTableName     []string
-	WithTablaName     []string
-	FromTableName     []string
-	JoinTableName     []string
-	ExtractTime       []string
-	ErrorTables       []string
-	DirtyData         []string
-	DeleteTableName   []string
-	UpdateTableName   []string
-	TruncateTableName []string
+	Query               string
+	Catalog             string
+	DbName              string
+	ParseTables         []Table
+	SelectTableName     []string
+	AlterTableName      []string
+	InsertTableName     []string
+	CreatTableName      []string
+	DropTableName       []string
+	DeleteTableName     []string
+	UpdateTableName     []string
+	TruncateTableName   []string
+	ErrorTables         []string
+	withTablaName       []string
+	fromTableName       []string
+	joinTableName       []string
+	extractTime         []string
+	selectExcludeTables []string
+	dropExcludeTables   []string
 }
 
 type Table struct {
@@ -126,18 +127,18 @@ func (p *Parse) getTableNames(action int) {
 	)
 
 	switch action {
-	case ExtractTime:
+	case extractTime:
 		parseFindRegexp, _ := regexp.Compile("(?i)extract\\s*\\([^)]+from(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
 		result := findAllStrings(p.Query, parseFindRegexp)
 		parseReplaceRegexp := newRegexp("(?i)extract\\s*\\([^)]+from\\s+", "")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp)
-	case From:
+	case from:
 		parseFindRegexp, _ := regexp.Compile("(?i)(^|\\s+|\\\\n)from(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
 		result := findAllStrings(p.Query, parseFindRegexp)
 		parseReplaceRegexp1 := newRegexp("(?i)((^|\\s+|\\\\n)from\\s+|\\s*)", "")
 		parseReplaceRegexp2 := newRegexp("(?i)(^|\\s+|\\\\n)from`", "`")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp1, parseReplaceRegexp2)
-	case With:
+	case with:
 		parseFindRegexp, _ := regexp.Compile("(?i)(with(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\([^)]+\\))?\\s+as\\s*\\(|,\\s*([a-z0-9_]+|`[^`]+`)(\\s*\\([^)]+\\))?\\s+as\\s*\\()")
 		result := findAllStrings(p.Query, parseFindRegexp)
 		parseReplaceRegexp := newRegexp("(?i)(with\\s+|,\\s*|(\\s*\\([^)]+\\))?\\s+as\\s*\\()", "")
@@ -158,7 +159,7 @@ func (p *Parse) getTableNames(action int) {
 		result := findAllStrings(p.Query, parseFindRegexp)
 		parseReplaceRegexp := newRegexp("(?i)create\\s+(table|view|materialized\\s+view)+(\\s+if\\s+not\\s+exists)?\\s*", "")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp)
-	case Join:
+	case join:
 		tableName := "(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*(\\s*as)?(\\s*[a-z0-9]+)?"
 		parseFindRegexp1, _ := regexp.Compile(fmt.Sprintf("(?i)from%s(\\s*,\\s*%s)*", tableName, tableName))
 		parseReplaceRegexp1 := newRegexp(fmt.Sprintf("(?i)from%s", tableName), "")
@@ -215,16 +216,20 @@ func (p *Parse) getTableNames(action int) {
 	return
 }
 
-func (p *Parse) AddDirtyData(strArr []string) {
-	p.DirtyData = util.RemoveRepeatElementAndToLower(append(p.DirtyData, strArr...))
+func (p *Parse) AddSelectExcludeTables(strArr []string) {
+	p.selectExcludeTables = util.RemoveRepeatElementAndToLower(append(p.selectExcludeTables, strArr...))
 }
 
-func (p *Parse) GetSelectFromTables() {
-	p.getTableNames(ExtractTime)
-	p.getTableNames(With)
+func (p *Parse) AddDropExcludeTables(list []string) {
+	p.dropExcludeTables = util.RemoveRepeatElementAndToLower(append(p.dropExcludeTables, list...))
+}
+
+func (p *Parse) GetSelectTables() {
+	p.getTableNames(extractTime)
+	p.getTableNames(with)
 	p.getTableNames(Delete)
-	p.getTableNames(From)
-	p.getTableNames(Join)
+	p.getTableNames(from)
+	p.getTableNames(join)
 	p.getTableNames(Select)
 }
 
@@ -256,20 +261,41 @@ func (p *Parse) GetAlterTables() {
 	p.getTableNames(Alter)
 }
 
-func (p *Parse) initDirtyData() {
-	p.DirtyData = []string{"dual", "unnest"}
+func (p *Parse) initExcludeTables() {
+	p.selectExcludeTables = []string{"dual", "unnest"}
+	p.dropExcludeTables = []string{"#tableau_"}
 }
 
-func (p *Parse) InitAllUseTable(isInitDirtyData bool) {
-	if isInitDirtyData {
-		p.initDirtyData()
+func (p *Parse) InitAllUseTable(isInitOtherData bool) {
+	if isInitOtherData {
+		p.initExcludeTables()
 	}
 	p.StmtClearAnnotation()
-	p.GetSelectFromTables()
+	p.GetSelectTables()
 	p.GetAlterTables()
 	p.GetCreateTables()
 	p.GetDropTables()
 	p.GetInsertTables()
 	p.GetUpdateTables()
 	p.GetTruncateTables()
+}
+
+func (p *Parse) DebugGetSelectTables() {
+	fmt.Println("查询表名")
+	for _, i := range p.fromTableName {
+		fmt.Println("fromTableName : ", i)
+	}
+	for _, i := range p.joinTableName {
+		fmt.Println("joinTableName : ", i)
+	}
+	fmt.Println("除外表名")
+	for _, i := range p.extractTime {
+		fmt.Println("extractTime : ", i)
+	}
+	for _, i := range p.withTablaName {
+		fmt.Println("withTablaName : ", i)
+	}
+	for _, i := range p.DeleteTableName {
+		fmt.Println("DeleteTableName : ", i)
+	}
 }

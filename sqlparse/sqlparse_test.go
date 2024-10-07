@@ -9,8 +9,8 @@ import (
 func TestGetTableNames(t *testing.T) {
 	join := ",x as ("
 	parse := NewParse(join, "", "violet", "")
-	parse.getTableNames(With)
-	for _, i := range parse.WithTablaName {
+	parse.getTableNames(with)
+	for _, i := range parse.withTablaName {
 		fmt.Println(i)
 	}
 	for _, i := range parse.ErrorTables {
@@ -32,7 +32,7 @@ func TestParse_StmtClearAnnotation(t *testing.T) {
 	newParse := NewParse(querySQL, "", "violet", "")
 	newParse.StmtClearAnnotation()
 	fmt.Println(newParse.Query)
-	newParse.getTableNames(From)
-	fmt.Println(newParse.FromTableName)
+	newParse.getTableNames(from)
+	fmt.Println(newParse.fromTableName)
 
 }
