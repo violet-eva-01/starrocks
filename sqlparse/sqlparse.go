@@ -129,7 +129,7 @@ func (p *Parse) getTableNames(action int) {
 	case ExtractTime:
 		parseFindRegexp, _ := regexp.Compile("(?i)extract\\s*\\([^)]+from(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
 		result := findAllStrings(p.Query, parseFindRegexp)
-		parseReplaceRegexp := newRegexp("(?i)extract\\s*\\([^)]+from\\s*", "")
+		parseReplaceRegexp := newRegexp("(?i)extract\\s*\\([^)]+from\\s+", "")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp)
 	case From:
 		parseFindRegexp, _ := regexp.Compile("(?i)(^|\\s+|\\\\n)from(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
