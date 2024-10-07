@@ -36,6 +36,7 @@ func (p *Parse) assignment(code int, tbl []string) {
 		p.JoinTableName = tbl
 	case Select:
 		otherArr := append(p.ExtractTime, p.DirtyData...)
+		otherArr = append(otherArr, p.DeleteTableName...)
 		tbl = util.RemoveCoincideElement(append(p.FromTableName, p.JoinTableName...), append(p.WithTablaName, otherArr...))
 		p.SelectTableName = tbl
 	case Insert:
