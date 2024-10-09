@@ -72,3 +72,18 @@ func RemoveRepeatElementAndToLower(list []string) []string {
 	}
 	return tempList
 }
+
+func ListReplace(list []string, old, new string) []string {
+	temp := make(map[string]struct{})
+	index := 0
+	for _, v := range list {
+		v = strings.ReplaceAll(v, old, new)
+		temp[v] = struct{}{}
+	}
+	tempList := make([]string, len(temp))
+	for key := range temp {
+		tempList[index] = key
+		index++
+	}
+	return tempList
+}

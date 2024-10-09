@@ -59,28 +59,21 @@ func NewParse(query string, catalog string, dbName string, defaultCatalog string
 	}
 }
 
-func (p *Parse) StmtClearAnnotation() {
+func (p *Parse) QueryClearAnnotation() {
 
 	var (
 		finalStrArr []string
 	)
 
-	//replaceRegexp, _ := regexp.Compile(`(--.*$|/\*([^*]|\*[^/])*\*/|\n)`)
-	replaceRegexp1, _ := regexp.Compile("(\\\\n|/\\*([^*]|\\*[^/])*\\*/)")
-
+	replaceRegexp1 := regexp.MustCompile("(\\\\n|/\\*([^*]|\\*[^/])*\\*/)")
 	tmpQuery := replaceRegexp1.ReplaceAllString(p.Query, "\n")
 
-	replaceRegexp2, _ := regexp.Compile("--.*$")
-
-	for _, tmpStr := range strings.Split(tmpQuery, "\n") {
-		tmpRRStr := replaceRegexp2.ReplaceAllString(tmpStr, "")
-		if len(tmpRRStr) > 0 {
-			finalStrArr = append(finalStrArr, tmpRRStr)
-		}
-	}
+	replaceRegexp2 := newRegexp(`'((?:\\.|[^\\'])*)'`, " ")
+	replaceRegexp3 := newRegexp(`"((?:\\.|[^\\"])*)"`, " ")
+	replaceRegexp4 := newRegexp("--.*$", " ")
+	finalStrArr = regexpReplaceAllStrings(strings.Split(tmpQuery, "\n"), replaceRegexp2, replaceRegexp3, replaceRegexp4)
 
 	p.Query = strings.Join(finalStrArr, "\n")
-
 }
 
 func findAllStrings(str string, regArr ...*regexp.Regexp) (result []string) {
@@ -109,10 +102,66 @@ func regexpReplaceAllStrings(strArr []string, regArr ...*sqlParseRegexp) (result
 }
 
 func newRegexp(reg string, new string) *sqlParseRegexp {
-	compile, _ := regexp.Compile(reg)
+	compile := regexp.MustCompile(reg)
 	return &sqlParseRegexp{
 		Reg: compile,
 		New: new,
+	}
+}
+
+func (p *Parse) GetCatalogDB() {
+	queryArr := strings.Split(p.Query, ";")
+	if len(queryArr) < 2 {
+		return
+	}
+	for _, query := range queryArr {
+		p.getSet(query)
+		p.getUse(query)
+	}
+}
+
+func (p *Parse) getSet(str string) {
+
+	parseFindRegexp := regexp.MustCompile("(?i)(^|\\s+|\\\\n)set\\s+catalog(\\s+[a-z0-9_\\p{L}]+|\\s*`[^`]+`)\\s*")
+	result := findAllStrings(str, parseFindRegexp)
+	if len(result) <= 0 {
+		return
+	}
+	parseReplaceRegexp1 := newRegexp("(?i)((^|\\s+|\\\\n)set\\s+catalog\\s+|\\s*)", "")
+	parseReplaceRegexp2 := newRegexp("(?i)(^|\\s+|\\\\n)set\\s+catalog`", "`")
+	tmpStrArr := regexpReplaceAllStrings(result, parseReplaceRegexp1, parseReplaceRegexp2)
+	if len(tmpStrArr) <= 0 {
+		return
+	}
+	p.Catalog = strings.ToLower(strings.ReplaceAll(tmpStrArr[0], "`", ""))
+
+}
+
+func (p *Parse) getUse(str string) {
+	parseFindRegexp := regexp.MustCompile("(?i)(^|\\s+|\\\\n)use(\\s+[a-z0-9_\\p{L}]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_\\p{L}]+|`[^`]+`))?\\s*")
+	result := findAllStrings(str, parseFindRegexp)
+	if len(result) <= 0 {
+		return
+	}
+	for _, item := range result {
+		fmt.Println(item)
+	}
+	parseReplaceRegexp1 := newRegexp("(?i)((^|\\s+|\\\\n)use\\s+|\\s*)", "")
+	parseReplaceRegexp2 := newRegexp("(?i)(^|\\s+|\\\\n)use`", "`")
+	tmpStrArr := regexpReplaceAllStrings(result, parseReplaceRegexp1, parseReplaceRegexp2)
+	if len(tmpStrArr) <= 0 {
+		return
+	}
+	catalogDB := strings.ReplaceAll(tmpStrArr[0], "`", "")
+	strArr := strings.Split(strings.ToLower(catalogDB), ".")
+	switch len(strArr) {
+	case 1:
+		p.DbName = strArr[0]
+	case 2:
+		p.Catalog = strArr[0]
+		p.DbName = strArr[1]
+	default:
+		return
 	}
 }
 
@@ -128,44 +177,44 @@ func (p *Parse) getTableNames(action int) {
 
 	switch action {
 	case extractTime:
-		parseFindRegexp, _ := regexp.Compile("(?i)extract\\s*\\([^)]+from(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		parseFindRegexp := regexp.MustCompile("(?i)extract\\s*\\([^)]+from(\\s+[a-z0-9_\\p{L}]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_\\p{L}]+|`[^`]+`))*")
 		result := findAllStrings(p.Query, parseFindRegexp)
 		parseReplaceRegexp := newRegexp("(?i)extract\\s*\\([^)]+from\\s+", "")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp)
 	case from:
-		parseFindRegexp, _ := regexp.Compile("(?i)(^|\\s+|\\\\n)from(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		parseFindRegexp := regexp.MustCompile("(?i)(^|\\s+|\\\\n)from(\\s+[a-z0-9_\\p{L}]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_\\p{L}]+|`[^`]+`))*")
 		result := findAllStrings(p.Query, parseFindRegexp)
 		parseReplaceRegexp1 := newRegexp("(?i)((^|\\s+|\\\\n)from\\s+|\\s*)", "")
 		parseReplaceRegexp2 := newRegexp("(?i)(^|\\s+|\\\\n)from`", "`")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp1, parseReplaceRegexp2)
 	case with:
-		parseFindRegexp, _ := regexp.Compile("(?i)(with(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\([^)]+\\))?\\s+as\\s*\\(|,\\s*([a-z0-9_]+|`[^`]+`)(\\s*\\([^)]+\\))?\\s+as\\s*\\()")
+		parseFindRegexp := regexp.MustCompile("(?i)(with(\\s+[a-z0-9_\\p{L}]+|\\s*`[^`]+`)(\\s*\\([^)]+\\))?\\s+as\\s*\\(|,\\s*([a-z0-9_\\p{L}]+|`[^`]+`)(\\s*\\([^)]+\\))?\\s+as\\s*\\()")
 		result := findAllStrings(p.Query, parseFindRegexp)
 		parseReplaceRegexp := newRegexp("(?i)(with\\s+|,\\s*|(\\s*\\([^)]+\\))?\\s+as\\s*\\()", "")
 		parseReplaceRegexp2 := newRegexp("(?i)with`", "`")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp, parseReplaceRegexp2)
 	case Insert:
-		parseFindRegexp, _ := regexp.Compile("(?i)insert\\s+(into|overwrite)(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		parseFindRegexp := regexp.MustCompile("(?i)insert\\s+(into|overwrite)(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
 		result := findAllStrings(p.Query, parseFindRegexp)
 		parseReplaceRegexp := newRegexp("(?i)insert\\s+(into|overwrite)\\s+", "")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp)
 	case Drop:
-		parseFindRegexp, _ := regexp.Compile("(?i)drop\\s+(temporary\\s+)?(table|view|materialized\\s+view)+(\\s+if\\s+exists)?(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		parseFindRegexp := regexp.MustCompile("(?i)drop\\s+(temporary\\s+)?(table|view|materialized\\s+view)+(\\s+if\\s+exists)?(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
 		result := findAllStrings(p.Query, parseFindRegexp)
 		parseReplaceRegexp := newRegexp("(?i)drop\\s+(temporary\\s+)?(table|view|materialized\\s+view)+(\\s+if\\s+exists)?\\s*", "")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp)
 	case Create:
-		parseFindRegexp, _ := regexp.Compile("(?i)create\\s+(table|view|materialized\\s+view)+(\\s+if\\s+not\\s+exists)?(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		parseFindRegexp := regexp.MustCompile("(?i)create\\s+(table|view|materialized\\s+view)+(\\s+if\\s+not\\s+exists)?(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
 		result := findAllStrings(p.Query, parseFindRegexp)
 		parseReplaceRegexp := newRegexp("(?i)create\\s+(table|view|materialized\\s+view)+(\\s+if\\s+not\\s+exists)?\\s*", "")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp)
 	case join:
-		tableName := "(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*(\\s*as)?(\\s*[a-z0-9]+)?"
-		parseFindRegexp1, _ := regexp.Compile(fmt.Sprintf("(?i)from%s(\\s*,\\s*%s)*", tableName, tableName))
+		tableName := "(\\s+[a-z0-9_\\p{L}]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_\\p{L}]+|`[^`]+`))*(\\s*as)?(\\s*[a-z0-9]+)?"
+		parseFindRegexp1 := regexp.MustCompile(fmt.Sprintf("(?i)from%s(\\s*,\\s*%s)*", tableName, tableName))
 		parseReplaceRegexp1 := newRegexp(fmt.Sprintf("(?i)from%s", tableName), "")
 		parseReplaceRegexp2 := newRegexp("\\s*,\\s*", ",")
 		parseReplaceRegexp3 := newRegexp("\\s*\\.\\s*", ".")
-		parseFindRegexp2, _ := regexp.Compile("(?i)([a-z0-9_]+|`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		parseFindRegexp2 := regexp.MustCompile("(?i)([a-z0-9_\\p{L}]+|`[^`]+`)(\\s*\\.\\s*([a-z0-9_\\p{L}]+|`[^`]+`))*")
 		result := findAllStrings(p.Query, parseFindRegexp1)
 		tmpTables := regexpReplaceAllStrings(result, parseReplaceRegexp1, parseReplaceRegexp2, parseReplaceRegexp3)
 		for _, tmpTable := range tmpTables {
@@ -179,31 +228,31 @@ func (p *Parse) getTableNames(action int) {
 				}
 			}
 		}
-		parseFindRegexp3, _ := regexp.Compile("(?i)join(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		parseFindRegexp3 := regexp.MustCompile("(?i)(^|\\s+|\\\\n)join(\\s+[a-z0-9_\\p{L}]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_\\p{L}]+|`[^`]+`))*")
 		result1 := findAllStrings(p.Query, parseFindRegexp3)
-		parseReplaceRegexp5 := newRegexp("(?i)join\\s+", "")
-		parseReplaceRegexp6 := newRegexp("(?i)join`", "`")
+		parseReplaceRegexp5 := newRegexp("(?i)(^|\\s+|\\\\n)join\\s+", "")
+		parseReplaceRegexp6 := newRegexp("(?i)(^|\\s+|\\\\n)join`", "`")
 		tmpTableNames := regexpReplaceAllStrings(result1, parseReplaceRegexp5, parseReplaceRegexp6, parseReplaceRegexp3)
 		tableNames = append(tableNames, tmpTableNames...)
 	case Select:
 	case Alter:
-		parseFindRegexp, _ := regexp.Compile("(?i)(^|\\s+|\\\\n)alter\\s+(table|view|materialized\\s+view)+(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		parseFindRegexp := regexp.MustCompile("(?i)(^|\\s+|\\\\n)alter\\s+(table|view|materialized\\s+view)+(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
 		result := findAllStrings(p.Query, parseFindRegexp)
 		parseReplaceRegexp := newRegexp("(?i)(^|\\s+|\\\\n)alter\\s+(table|view|materialized\\s+view)+\\s*", "")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp)
 	case Delete:
-		parseFindRegexp, _ := regexp.Compile("(?i)(^|\\s+|\\\\n)delete\\s+from(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		parseFindRegexp := regexp.MustCompile("(?i)(^|\\s+|\\\\n)delete\\s+from(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
 		result := findAllStrings(p.Query, parseFindRegexp)
 		parseReplaceRegexp := newRegexp("(?i)(^|\\s+|\\\\n)delete\\s+from\\s*", "")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp)
 	case Update:
-		parseFindRegexp, _ := regexp.Compile("(?i)(^|\\s+|\\\\n)update(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		parseFindRegexp := regexp.MustCompile("(?i)(^|\\s+|\\\\n)update(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
 		result := findAllStrings(p.Query, parseFindRegexp)
 		parseReplaceRegexp1 := newRegexp("(?i)((^|\\s+|\\\\n)update\\s+|\\s*)", "")
 		parseReplaceRegexp2 := newRegexp("(?i)(^|\\s+|\\\\n)update`", "`")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp1, parseReplaceRegexp2)
 	case Truncate:
-		parseFindRegexp, _ := regexp.Compile("(?i)(^|\\s+|\\\\n)truncate\\s+table(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
+		parseFindRegexp := regexp.MustCompile("(?i)(^|\\s+|\\\\n)truncate\\s+table(\\s+[a-z0-9_]+|\\s*`[^`]+`)(\\s*\\.\\s*([a-z0-9_]+|`[^`]+`))*")
 		result := findAllStrings(p.Query, parseFindRegexp)
 		parseReplaceRegexp := newRegexp("(?i)(^|\\s+|\\\\n)truncate\\s+table\\s*", "")
 		tableNames = regexpReplaceAllStrings(result, parseReplaceRegexp)
@@ -261,16 +310,23 @@ func (p *Parse) GetAlterTables() {
 	p.getTableNames(Alter)
 }
 
-func (p *Parse) initExcludeTables() {
+func (p *Parse) InitExcludeTables(selectTables, dropTables []string) {
+
 	p.selectExcludeTables = []string{"dual", "unnest"}
+	if len(selectTables) > 0 {
+		p.selectExcludeTables = util.RemoveRepeatElementAndToLower(append(p.selectExcludeTables, selectTables...))
+	}
+
 	p.dropExcludeTables = []string{"#tableau_"}
+	if len(dropTables) > 0 {
+		p.dropExcludeTables = util.RemoveRepeatElementAndToLower(append(p.dropExcludeTables, dropTables...))
+	}
+
 }
 
-func (p *Parse) InitAllUseTable(isInitOtherData bool) {
-	if isInitOtherData {
-		p.initExcludeTables()
-	}
-	p.StmtClearAnnotation()
+func (p *Parse) InitAllUseTable() {
+	p.QueryClearAnnotation()
+	p.GetCatalogDB()
 	p.GetSelectTables()
 	p.GetAlterTables()
 	p.GetCreateTables()
@@ -281,6 +337,8 @@ func (p *Parse) InitAllUseTable(isInitOtherData bool) {
 }
 
 func (p *Parse) DebugGetSelectTables() {
+	fmt.Println("clean 后的query")
+	fmt.Println(p.Query)
 	fmt.Println("查询表名")
 	for _, i := range p.fromTableName {
 		fmt.Println("fromTableName : ", i)
@@ -297,5 +355,9 @@ func (p *Parse) DebugGetSelectTables() {
 	}
 	for _, i := range p.DeleteTableName {
 		fmt.Println("DeleteTableName : ", i)
+	}
+	fmt.Println("最终查询表名")
+	for _, i := range p.SelectTableName {
+		fmt.Println("SelectTableName : ", i)
 	}
 }
