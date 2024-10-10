@@ -8,25 +8,24 @@ import (
 )
 
 type Parse struct {
-	Query               string
-	Catalog             string
-	DbName              string
-	ParseTables         []Table
-	SelectTableName     []string
-	AlterTableName      []string
-	InsertTableName     []string
-	CreatTableName      []string
-	DropTableName       []string
-	DeleteTableName     []string
-	UpdateTableName     []string
-	TruncateTableName   []string
-	ErrorTables         []string
-	withTablaName       []string
-	fromTableName       []string
-	joinTableName       []string
-	extractTime         []string
-	selectExcludeTables []string
-	dropExcludeTables   []string
+	Query             string
+	Catalog           string
+	DbName            string
+	ParseTables       []Table
+	SelectTableName   []string
+	AlterTableName    []string
+	InsertTableName   []string
+	CreatTableName    []string
+	DropTableName     []string
+	DeleteTableName   []string
+	UpdateTableName   []string
+	TruncateTableName []string
+	ErrorTables       []string
+	withTablaName     []string
+	fromTableName     []string
+	joinTableName     []string
+	extractTime       []string
+	excludeTables     []string
 }
 
 type Table struct {
@@ -265,12 +264,15 @@ func (p *Parse) getTableNames(action int) {
 	return
 }
 
-func (p *Parse) AddSelectExcludeTables(strArr []string) {
-	p.selectExcludeTables = util.RemoveRepeatElementAndToLower(append(p.selectExcludeTables, strArr...))
+func (p *Parse) AddExcludeTables(excludeTables ...string) {
+	p.excludeTables = util.RemoveRepeatElementAndToLower(append(p.excludeTables, addSpecialCharacters(excludeTables)...))
 }
 
-func (p *Parse) AddDropExcludeTables(list []string) {
-	p.dropExcludeTables = util.RemoveRepeatElementAndToLower(append(p.dropExcludeTables, list...))
+func (p *Parse) InitExcludeTables(excludeTables ...string) {
+	p.excludeTables = []string{"`dual`", "`unnest`", "`#tableau_`", "`files`", "`generate_series`"}
+	if len(excludeTables) > 0 {
+		p.AddExcludeTables(excludeTables...)
+	}
 }
 
 func (p *Parse) GetSelectTables() {
@@ -308,20 +310,6 @@ func (p *Parse) GetTruncateTables() {
 
 func (p *Parse) GetAlterTables() {
 	p.getTableNames(Alter)
-}
-
-func (p *Parse) InitExcludeTables(selectTables, dropTables []string) {
-
-	p.selectExcludeTables = []string{"dual", "unnest"}
-	if len(selectTables) > 0 {
-		p.selectExcludeTables = util.RemoveRepeatElementAndToLower(append(p.selectExcludeTables, selectTables...))
-	}
-
-	p.dropExcludeTables = []string{"#tableau_"}
-	if len(dropTables) > 0 {
-		p.dropExcludeTables = util.RemoveRepeatElementAndToLower(append(p.dropExcludeTables, dropTables...))
-	}
-
 }
 
 func (p *Parse) InitAllUseTable() {

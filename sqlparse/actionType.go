@@ -23,8 +23,7 @@ const (
 
 func (p *Parse) assignment(code int, tbl []string) {
 
-	tbl = util.RemoveRepeatElementAndToLower(tbl)
-	tbl = addSpecialCharacters(tbl)
+	tbl = addSpecialCharacters(util.RemoveRepeatElementAndToLower(tbl))
 
 	switch code {
 	case extractTime:
@@ -36,16 +35,15 @@ func (p *Parse) assignment(code int, tbl []string) {
 	case join:
 		p.joinTableName = tbl
 	case Select:
-		otherArr := append(p.extractTime, p.selectExcludeTables...)
-		otherArr = append(otherArr, p.DeleteTableName...)
-		tbl = util.RemoveCoincideElement(append(p.fromTableName, p.joinTableName...), append(p.withTablaName, otherArr...))
+		otherArr := append(p.extractTime, p.excludeTables...)
+		tbl = util.RemoveCoincideElement(append(p.fromTableName, p.joinTableName...), append(otherArr, p.withTablaName...))
 		p.SelectTableName = tbl
 	case Insert:
 		p.InsertTableName = tbl
 	case Create:
 		p.CreatTableName = tbl
 	case Drop:
-		tbl = util.RemoveIfExistsElement(tbl, p.dropExcludeTables)
+		tbl = util.RemoveIfExistsElement(tbl, p.excludeTables)
 		p.DropTableName = tbl
 	case Alter:
 		p.AlterTableName = tbl
