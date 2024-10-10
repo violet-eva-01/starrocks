@@ -27,6 +27,7 @@ type Parse struct {
 	joinTableName     []string
 	extractTime       []string
 	excludeTables     []string
+	excludeSign       []string
 }
 
 type Table struct {
@@ -166,7 +167,7 @@ func (p *Parse) getUse(str string) {
 // @Description
 // @param action
 // @return error
-func (p *Parse) getTableNames(action int) {
+func (p *Parse) getTableNames(action int, isExists bool) {
 
 	var (
 		tableNames []string
@@ -257,7 +258,7 @@ func (p *Parse) getTableNames(action int) {
 		return
 	}
 
-	p.assignment(action, tableNames)
+	p.assignment(action, tableNames, isExists)
 
 	return
 }
@@ -268,7 +269,7 @@ func (p *Parse) AddExcludeTables(excludeTables ...string) {
 }
 
 func (p *Parse) InitExcludeTables(excludeTables ...string) {
-	p.excludeTables = []string{"`dual`", "`unnest`", "#tableau_", "`files`", "`generate_series`"}
+	p.excludeTables = []string{"`dual`", "`unnest`", "`files`", "`generate_series`"}
 	if len(excludeTables) > 0 {
 		p.AddExcludeTables(excludeTables...)
 	} else {
@@ -276,53 +277,67 @@ func (p *Parse) InitExcludeTables(excludeTables ...string) {
 	}
 }
 
-func (p *Parse) GetSelectTables() {
-	p.getTableNames(extractTime)
-	p.getTableNames(with)
-	p.getTableNames(Delete)
-	p.getTableNames(from)
-	p.getTableNames(join)
-	p.getTableNames(Select)
+func (p *Parse) AddExcludeSign(excludeSign ...string) {
+	p.excludeSign = util.RemoveRepeatElementAndToLower(append(p.excludeTables, addSpecialCharacters(excludeSign)...))
+	sort.Strings(p.excludeSign)
 }
 
-func (p *Parse) GetCreateTables() {
-	p.getTableNames(Create)
+func (p *Parse) InitExcludeSign(excludeSign ...string) {
+	p.excludeSign = []string{"#tableau_"}
+	if len(excludeSign) > 0 {
+		p.AddExcludeSign(excludeSign...)
+	} else {
+		sort.Strings(p.excludeSign)
+	}
 }
 
-func (p *Parse) GetDropTables() {
-	p.getTableNames(Drop)
+func (p *Parse) GetSelectTables(isExists bool) {
+	p.getTableNames(extractTime, isExists)
+	p.getTableNames(with, isExists)
+	p.getTableNames(Delete, isExists)
+	p.getTableNames(from, isExists)
+	p.getTableNames(join, isExists)
+	p.getTableNames(Select, isExists)
 }
 
-func (p *Parse) GetInsertTables() {
-	p.getTableNames(Insert)
+func (p *Parse) GetCreateTables(isExists bool) {
+	p.getTableNames(Create, isExists)
 }
 
-func (p *Parse) GetUpdateTables() {
-	p.getTableNames(Update)
+func (p *Parse) GetDropTables(isExists bool) {
+	p.getTableNames(Drop, isExists)
 }
 
-func (p *Parse) GetDeleteTables() {
-	p.getTableNames(Delete)
+func (p *Parse) GetInsertTables(isExists bool) {
+	p.getTableNames(Insert, isExists)
 }
 
-func (p *Parse) GetTruncateTables() {
-	p.getTableNames(Truncate)
+func (p *Parse) GetUpdateTables(isExists bool) {
+	p.getTableNames(Update, isExists)
 }
 
-func (p *Parse) GetAlterTables() {
-	p.getTableNames(Alter)
+func (p *Parse) GetDeleteTables(isExists bool) {
+	p.getTableNames(Delete, isExists)
+}
+
+func (p *Parse) GetTruncateTables(isExists bool) {
+	p.getTableNames(Truncate, isExists)
+}
+
+func (p *Parse) GetAlterTables(isExists bool) {
+	p.getTableNames(Alter, isExists)
 }
 
 func (p *Parse) InitAllUseTable() {
 	p.QueryClearAnnotation()
 	p.GetCatalogDB()
-	p.GetSelectTables()
-	p.GetAlterTables()
-	p.GetCreateTables()
-	p.GetDropTables()
-	p.GetInsertTables()
-	p.GetUpdateTables()
-	p.GetTruncateTables()
+	p.GetSelectTables(false)
+	p.GetAlterTables(false)
+	p.GetCreateTables(false)
+	p.GetDropTables(true)
+	p.GetInsertTables(false)
+	p.GetUpdateTables(false)
+	p.GetTruncateTables(false)
 }
 
 func (p *Parse) DebugGetSelectTables() {
@@ -348,6 +363,10 @@ func (p *Parse) DebugGetSelectTables() {
 	fmt.Println("除外常量表名")
 	for _, i := range p.excludeTables {
 		fmt.Println("excludeTables : ", i)
+	}
+	fmt.Println("除外常量标志")
+	for _, i := range p.excludeSign {
+		fmt.Println("excludeSign : ", i)
 	}
 	fmt.Println("最终查询表名")
 	for _, i := range p.SelectTableName {

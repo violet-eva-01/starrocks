@@ -22,9 +22,13 @@ const (
 	Truncate    = 107
 )
 
-func (p *Parse) assignment(code int, tbl []string) {
+func (p *Parse) assignment(code int, tbl []string, isExists bool) {
 
 	tbl = addSpecialCharacters(util.RemoveRepeatElementAndToLower(tbl))
+
+	if isExists {
+		tbl = util.RemoveIfExistsElement(tbl, p.excludeSign, false)
+	}
 
 	switch code {
 	case extractTime:
@@ -47,7 +51,6 @@ func (p *Parse) assignment(code int, tbl []string) {
 	case Create:
 		p.CreatTableName = tbl
 	case Drop:
-		tbl = util.RemoveIfExistsElement(tbl, p.excludeTables, false)
 		p.DropTableName = tbl
 	case Alter:
 		p.AlterTableName = tbl
