@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/violet-eva-01/starrocks/util"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -41,6 +42,39 @@ type sqlParseRegexp struct {
 	New string
 }
 
+func newRegexp(reg string, new string) *sqlParseRegexp {
+	compile := regexp.MustCompile(reg)
+	return &sqlParseRegexp{
+		Reg: compile,
+		New: new,
+	}
+}
+
+func findAllStrings(str string, regArr ...*regexp.Regexp) (result []string) {
+	for _, reg := range regArr {
+		findAllString := reg.FindAllString(str, -1)
+		for _, f := range findAllString {
+			if len(f) > 0 {
+				result = append(result, f)
+			}
+		}
+	}
+	return
+}
+
+func regexpReplaceAllStrings(strArr []string, regArr ...*sqlParseRegexp) (result []string) {
+
+	for _, str := range strArr {
+		for _, reg := range regArr {
+			str = reg.Reg.ReplaceAllString(str, reg.New)
+		}
+		if len(str) > 0 {
+			result = append(result, str)
+		}
+	}
+	return
+}
+
 func NewParse(query string, catalog string, dbName string, defaultCatalog string) *Parse {
 
 	if len(strings.ReplaceAll(catalog, " ", "")) < 1 {
@@ -73,39 +107,6 @@ func (p *Parse) QueryClearAnnotation() {
 	finalStrArr = regexpReplaceAllStrings(strings.Split(tmpQuery, "\n"), replaceRegexp2, replaceRegexp3, replaceRegexp4)
 
 	p.Query = strings.Join(finalStrArr, "\n")
-}
-
-func findAllStrings(str string, regArr ...*regexp.Regexp) (result []string) {
-	for _, reg := range regArr {
-		findAllString := reg.FindAllString(str, -1)
-		for _, f := range findAllString {
-			if len(f) > 0 {
-				result = append(result, f)
-			}
-		}
-	}
-	return
-}
-
-func regexpReplaceAllStrings(strArr []string, regArr ...*sqlParseRegexp) (result []string) {
-
-	for _, str := range strArr {
-		for _, reg := range regArr {
-			str = reg.Reg.ReplaceAllString(str, reg.New)
-		}
-		if len(str) > 0 {
-			result = append(result, str)
-		}
-	}
-	return
-}
-
-func newRegexp(reg string, new string) *sqlParseRegexp {
-	compile := regexp.MustCompile(reg)
-	return &sqlParseRegexp{
-		Reg: compile,
-		New: new,
-	}
 }
 
 func (p *Parse) GetCatalogDB() {
@@ -141,9 +142,6 @@ func (p *Parse) getUse(str string) {
 	result := findAllStrings(str, parseFindRegexp)
 	if len(result) <= 0 {
 		return
-	}
-	for _, item := range result {
-		fmt.Println(item)
 	}
 	parseReplaceRegexp1 := newRegexp("(?i)((^|\\s+|\\\\n)use\\s+|\\s*)", "")
 	parseReplaceRegexp2 := newRegexp("(?i)(^|\\s+|\\\\n)use`", "`")
@@ -266,12 +264,15 @@ func (p *Parse) getTableNames(action int) {
 
 func (p *Parse) AddExcludeTables(excludeTables ...string) {
 	p.excludeTables = util.RemoveRepeatElementAndToLower(append(p.excludeTables, addSpecialCharacters(excludeTables)...))
+	sort.Strings(p.excludeTables)
 }
 
 func (p *Parse) InitExcludeTables(excludeTables ...string) {
-	p.excludeTables = []string{"`dual`", "`unnest`", "`#tableau_`", "`files`", "`generate_series`"}
+	p.excludeTables = []string{"`dual`", "`unnest`", "#tableau_", "`files`", "`generate_series`"}
 	if len(excludeTables) > 0 {
 		p.AddExcludeTables(excludeTables...)
+	} else {
+		sort.Strings(p.excludeTables)
 	}
 }
 
@@ -343,6 +344,10 @@ func (p *Parse) DebugGetSelectTables() {
 	}
 	for _, i := range p.DeleteTableName {
 		fmt.Println("DeleteTableName : ", i)
+	}
+	fmt.Println("除外常量表名")
+	for _, i := range p.excludeTables {
+		fmt.Println("excludeTables : ", i)
 	}
 	fmt.Println("最终查询表名")
 	for _, i := range p.SelectTableName {

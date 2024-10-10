@@ -3,6 +3,7 @@ package sqlparse
 import (
 	"github.com/violet-eva-01/starrocks/util"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -36,14 +37,17 @@ func (p *Parse) assignment(code int, tbl []string) {
 		p.joinTableName = tbl
 	case Select:
 		otherArr := append(p.extractTime, p.excludeTables...)
-		tbl = util.RemoveCoincideElement(append(p.fromTableName, p.joinTableName...), append(otherArr, p.withTablaName...))
+		otherArr = append(otherArr, p.withTablaName...)
+		otherArr = append(otherArr, p.DeleteTableName...)
+		sort.Strings(otherArr)
+		tbl = util.RemoveCoincideElement(append(p.fromTableName, p.joinTableName...), otherArr, false)
 		p.SelectTableName = tbl
 	case Insert:
 		p.InsertTableName = tbl
 	case Create:
 		p.CreatTableName = tbl
 	case Drop:
-		tbl = util.RemoveIfExistsElement(tbl, p.excludeTables)
+		tbl = util.RemoveIfExistsElement(tbl, p.excludeTables, false)
 		p.DropTableName = tbl
 	case Alter:
 		p.AlterTableName = tbl
