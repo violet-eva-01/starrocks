@@ -26,21 +26,19 @@ func RemoveCoincideElement(list1, list2 []string, isSort bool) []string {
 	return result
 }
 
-func IfExists(str string, strArray []string, isSort bool) bool {
-	if isSort {
-		sort.Strings(strArray)
-	}
-	index := sort.SearchStrings(strArray, str)
-	if index < len(strArray) && strings.Contains(str, strArray[index]) {
-		return true
+func IfExists(str string, strArray []string) bool {
+	for _, i := range strArray {
+		if strings.Contains(str, i) {
+			return true
+		}
 	}
 	return false
 }
 
-func RemoveIfExistsElement(list1, list2 []string, isSort bool) []string {
+func RemoveIfExistsElement(list1, list2 []string) []string {
 	result := make([]string, 0)
 	for _, i := range list1 {
-		if !IfExists(i, list2, isSort) {
+		if !IfExists(i, list2) {
 			result = append(result, i)
 		}
 	}

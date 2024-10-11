@@ -105,7 +105,13 @@ func (p *Parse) QueryClearAnnotation() {
 	replaceRegexp2 := newRegexp(`'((?:\\.|[^\\'])*)'`, " ")
 	replaceRegexp3 := newRegexp(`"((?:\\.|[^\\"])*)"`, " ")
 	replaceRegexp4 := newRegexp("--.*$", " ")
-	finalStrArr = regexpReplaceAllStrings(strings.Split(tmpQuery, "\n"), replaceRegexp2, replaceRegexp3, replaceRegexp4)
+	tmpStrArr := regexpReplaceAllStrings(strings.Split(tmpQuery, "\n"), replaceRegexp2, replaceRegexp3, replaceRegexp4)
+
+	for _, str := range tmpStrArr {
+		if len(strings.TrimSpace(str)) > 0 {
+			finalStrArr = append(finalStrArr, str)
+		}
+	}
 
 	p.Query = strings.Join(finalStrArr, "\n")
 }

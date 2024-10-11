@@ -54,3 +54,11 @@ func TestParse_StmtClearAnnotation(t *testing.T) {
 		fmt.Println(i)
 	}
 }
+
+func TestGetDropTable(t *testing.T) {
+	query := "DROP TABLE IF EXISTS `#Tableau_13_sid_0010C510_2_Connect_CheckSelectIntoCap`"
+	parse := NewParse(query, "", "violet", "")
+	parse.InitExcludeSign()
+	parse.GetDropTables(true)
+	fmt.Println(parse.ParseTables)
+}
