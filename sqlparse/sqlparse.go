@@ -93,9 +93,10 @@ func NewParse(query string, catalog string, dbName string, defaultCatalog string
 	}
 }
 
-func (p *Parse) QueryClearAnnotation() {
+func (p *Parse) QueryClearAnnotation(isClean bool) {
 
 	var (
+		tmpStrArr   []string
 		finalStrArr []string
 	)
 
@@ -105,12 +106,21 @@ func (p *Parse) QueryClearAnnotation() {
 	replaceRegexp2 := newRegexp(`'((?:\\.|[^\\'])*)'`, " ")
 	replaceRegexp3 := newRegexp(`"((?:\\.|[^\\"])*)"`, " ")
 	replaceRegexp4 := newRegexp("--.*$", " ")
-	tmpStrArr := regexpReplaceAllStrings(strings.Split(tmpQuery, "\n"), replaceRegexp2, replaceRegexp3, replaceRegexp4)
+
+	if isClean {
+		tmpStrArr = regexpReplaceAllStrings(strings.Split(tmpQuery, "\n"), replaceRegexp2, replaceRegexp3, replaceRegexp4)
+	} else {
+		tmpStrArr = regexpReplaceAllStrings(strings.Split(tmpQuery, "\n"), replaceRegexp4)
+	}
 
 	for _, str := range tmpStrArr {
 		if len(strings.TrimSpace(str)) > 0 {
 			finalStrArr = append(finalStrArr, str)
 		}
+	}
+
+	if isClean {
+		finalStrArr = regexpReplaceAllStrings([]string{strings.Join(finalStrArr, "\n")}, replaceRegexp2, replaceRegexp3)
 	}
 
 	p.Query = strings.Join(finalStrArr, "\n")
@@ -335,7 +345,7 @@ func (p *Parse) GetAlterTables(isExists bool) {
 }
 
 func (p *Parse) InitAllUseTable() {
-	p.QueryClearAnnotation()
+	p.QueryClearAnnotation(true)
 	p.GetCatalogDB()
 	p.GetSelectTables(false)
 	p.GetAlterTables(false)
