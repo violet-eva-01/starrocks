@@ -27,7 +27,7 @@ func (p *Parse) assignment(code int, tbl []string, isExists bool) {
 	tbl = addSpecialCharacters(util.RemoveRepeatElementAndToLower(tbl))
 
 	if isExists {
-		tbl = util.RemoveIfExistsElement(tbl, p.excludeSign)
+		tbl = util.RemoveMatchElement(tbl, p.excludeSign)
 	}
 
 	switch code {
