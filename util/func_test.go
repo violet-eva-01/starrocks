@@ -7,6 +7,7 @@ import (
 )
 
 func TestListSplit(t *testing.T) {
+
 	var (
 		starList  []string
 		finalList []string

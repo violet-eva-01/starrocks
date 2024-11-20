@@ -8,18 +8,18 @@ import (
 )
 
 const (
-	extractTime = 96
-	with        = 97
-	from        = 98
-	join        = 99
-	Select      = 100
-	Alter       = 101
-	Insert      = 102
-	Create      = 103
-	Drop        = 104
-	Update      = 105
-	Delete      = 106
-	Truncate    = 107
+	extractTime = 96 + iota
+	with
+	from
+	join
+	Select
+	Alter
+	Insert
+	Create
+	Drop
+	Update
+	Delete
+	Truncate
 )
 
 func (p *Parse) assignment(code int, tbl []string, isExists bool) {

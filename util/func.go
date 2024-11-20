@@ -16,6 +16,15 @@ func In(str string, strArray []string, isSort bool) bool {
 	return false
 }
 
+func FindIndex(str string, strArr []string) int {
+	for index, element := range strArr {
+		if str == element {
+			return index
+		}
+	}
+	return -1
+}
+
 func RemoveCoincideElement(list1, list2 []string, isSort bool) []string {
 	result := make([]string, 0)
 	for _, i := range list1 {

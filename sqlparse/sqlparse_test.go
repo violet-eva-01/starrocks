@@ -55,5 +55,4 @@ func TestGetDropTable(t *testing.T) {
 	parse.InitExcludeSign()
 	parse.GetDropTables(true)
 	fmt.Println(parse.ParseTables)
-
 }
