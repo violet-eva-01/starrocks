@@ -78,7 +78,7 @@ func (ap *AuthorizeParse) getObject() {
 		if matchString := compile1.MatchString(objectStr[0]); matchString {
 			ap.Authorize.ObjectType = i
 			switch StarRocksPermissionType(index) {
-			case Table, View, MaterializedView:
+			case Table, View, MaterializedView, Function:
 				if strings.Contains(objectStr[0], fmt.Sprintf("ON ALL %sS", i)) {
 					ap.Authorize.ObjectTBLName = fmt.Sprintf("ALL %sS", i)
 					all := strings.ReplaceAll(objectStr[0], fmt.Sprintf("ON ALL %sS", i), "")
