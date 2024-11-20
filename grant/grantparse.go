@@ -92,6 +92,12 @@ func (ap *AuthorizeParse) getObject() {
 					ap.Authorize.ObjectDBName = split[0]
 					ap.Authorize.ObjectTBLName = split[1]
 				}
+			case Database:
+				if strings.Contains(objectStr[0], fmt.Sprintf("ON ALL %sS", i)) {
+					ap.Authorize.ObjectDBName = fmt.Sprintf("ALL %sS", i)
+				} else {
+					ap.Authorize.ObjectDBName = strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(objectStr[0], fmt.Sprintf("ON %s ", i), ""), "'", ""))
+				}
 			case System:
 				return
 			default:
