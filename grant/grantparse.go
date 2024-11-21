@@ -82,7 +82,7 @@ func (ap *AuthorizeParse) getObject() {
 				if strings.Contains(objectStr[0], fmt.Sprintf("ON ALL %sS", i)) {
 					ap.Authorize.ObjectTBLName = fmt.Sprintf("ALL %sS", i)
 					all := strings.ReplaceAll(objectStr[0], fmt.Sprintf("ON ALL %sS", i), "")
-					if strings.Contains(all, " ALL DATABASES ") {
+					if strings.Contains(all, " ALL DATABASES") {
 						ap.Authorize.ObjectDBName = "ALL DATABASES"
 					} else {
 						ap.Authorize.ObjectDBName = strings.TrimSpace(strings.ReplaceAll(all, "IN DATABASE", ""))
