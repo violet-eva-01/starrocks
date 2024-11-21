@@ -17,16 +17,16 @@ type AuthorizeParse struct {
 }
 
 type Authorize struct {
-	Catalog string
+	Catalog string ` gorm:"column:catalog" json:"catalog"`
 	//PermissionsType string
-	Permissions   []string
-	ObjectType    string
-	ObjectName    string
-	ObjectDBName  string
-	ObjectTBLName string
-	GranteeType   string
-	GranteeName   string
-	IP            string
+	Permissions   []string `gorm:"column:permissions" json:"permissions"`
+	ObjectType    string   `gorm:"column:object_type" json:"object_type"`
+	ObjectName    string   `gorm:"column:object_name" json:"object_name"`
+	ObjectDBName  string   `gorm:"column:object_db_name" json:"object_db_name"`
+	ObjectTBLName string   `gorm:"column:object_tbl_name" json:"object_tbl_name"`
+	GranteeType   string   `gorm:"column:grantee_type" json:"grantee_type"`
+	GranteeName   string   `gorm:"column:grantee_name" json:"grantee_name"`
+	IP            string   `gorm:"column:ip" json:"ip"`
 }
 
 func NewParse(userIdentity string, catalog string, as string) *AuthorizeParse {
@@ -48,7 +48,7 @@ func (ap *AuthorizeParse) Parse() {
 
 func (ap *AuthorizeParse) getGrantee() {
 
-	compile := regexp.MustCompile("(?i) TO .*$")
+	compile := regexp.MustCompile("(?i)\\s+TO\\s+.*$")
 	ap.as = compile.ReplaceAllString(ap.as, "")
 
 	split := strings.Split(strings.TrimSpace(strings.ReplaceAll(ap.UserIdentity, "'", "")), "@")
@@ -64,47 +64,96 @@ func (ap *AuthorizeParse) getGrantee() {
 }
 
 func (ap *AuthorizeParse) getObject() {
-	compile := regexp.MustCompile("(?i) ON .*$")
-	objectStr := compile.FindAllString(ap.as, -1)
-	ap.as = compile.ReplaceAllString(ap.as, "")
-	if len(objectStr) == 0 {
+	objectCompile := regexp.MustCompile("(?i)\\s+ON\\s+.*$")
+	objectStrList := objectCompile.FindAllString(ap.as, -1)
+	ap.as = objectCompile.ReplaceAllString(ap.as, "")
+	if len(objectStrList) == 0 {
 		ap.Authorize.ObjectType = "ROLE"
 		return
 	}
+	objectStr := objectStrList[0]
+	for sptIndex, sptName := range starRocksPermissionTypeNames {
+		var (
+			objectTypeRegexp string
+			policies         string
+			policiesRegexp   string
+		)
 
-	for index, i := range permissionTypeNames {
-		regexpStr := fmt.Sprintf("(?i)(ON %s|ON ALL %sS)", i, i)
-		compile1 := regexp.MustCompile(regexpStr)
-		if matchString := compile1.MatchString(objectStr[0]); matchString {
-			ap.Authorize.ObjectType = i
-			switch StarRocksPermissionType(index) {
-			case Table, View, MaterializedView, Function:
-				if strings.Contains(objectStr[0], fmt.Sprintf("ON ALL %sS", i)) {
-					ap.Authorize.ObjectTBLName = fmt.Sprintf("ALL %sS", i)
-					all := strings.ReplaceAll(objectStr[0], fmt.Sprintf("ON ALL %sS", i), "")
-					if strings.Contains(all, " ALL DATABASES") {
-						ap.Authorize.ObjectDBName = "ALL DATABASES"
-					} else {
-						ap.Authorize.ObjectDBName = strings.TrimSpace(strings.ReplaceAll(all, "IN DATABASE", ""))
-					}
-				} else {
-					split := strings.Split(strings.TrimSpace(strings.ReplaceAll(objectStr[0], fmt.Sprintf("ON %s ", i), "")), ".")
-					ap.Authorize.ObjectDBName = split[0]
-					ap.Authorize.ObjectTBLName = split[1]
-				}
-			case Database:
-				if strings.Contains(objectStr[0], fmt.Sprintf("ON ALL %sS", i)) {
-					ap.Authorize.ObjectDBName = fmt.Sprintf("ALL %sS", i)
-				} else {
-					ap.Authorize.ObjectDBName = strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(objectStr[0], fmt.Sprintf("ON %s ", i), ""), "'", ""))
-				}
+		spt := StarRocksPermissionType(sptIndex)
+
+		switch spt {
+		case MaskingPolicy, RowAccessPolicy:
+			policiesCompile := regexp.MustCompile("Y$")
+			policiesRegexp = policiesCompile.ReplaceAllString(spt.RegexpString(), "IES")
+			policies = policiesCompile.ReplaceAllString(spt.String(), "IES")
+			objectTypeRegexp = fmt.Sprintf("(?i)(ON\\s+%s|ON\\s+ALL\\s+%s)", spt.RegexpString(), policiesRegexp)
+		default:
+			objectTypeRegexp = fmt.Sprintf("(?i)(ON\\s+%s|ON\\s+ALL\\s+%sS)", spt.RegexpString(), spt.RegexpString())
+		}
+
+		objectTypeCompile := regexp.MustCompile(objectTypeRegexp)
+
+		if objectTypeCompile.MatchString(objectStr) {
+			ap.Authorize.ObjectType = sptName
+			switch spt {
 			case System:
 				return
-			default:
-				if strings.Contains(objectStr[0], fmt.Sprintf("ON ALL %sS", i)) {
-					ap.Authorize.ObjectName = fmt.Sprintf("ALL %sS", i)
+			case Table, View, MaterializedView, Function:
+				objectNameRegexpStr := fmt.Sprintf("(?i)ON\\s+ALL\\s+%sS", spt.RegexpString())
+				objectNameCompile := regexp.MustCompile(objectNameRegexpStr)
+				if objectNameCompile.MatchString(objectStr) {
+					ap.Authorize.ObjectTBLName = fmt.Sprintf("ALL %sS", sptName)
+					objectDBNameStr := objectNameCompile.ReplaceAllString(objectStr, "")
+					if regexp.MustCompile("(?i)ALL\\s+DATABASES").MatchString(objectDBNameStr) {
+						ap.Authorize.ObjectDBName = "ALL DATABASES"
+					} else {
+						objectDBCompile := regexp.MustCompile("(?i)(IN\\s+DATABASE|')")
+						ap.Authorize.ObjectDBName = strings.TrimSpace(objectDBCompile.ReplaceAllString(objectDBNameStr, ""))
+					}
 				} else {
-					ap.Authorize.ObjectName = strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(objectStr[0], fmt.Sprintf("ON %s ", i), ""), "'", ""))
+					objectDBTBLRegexpStr := fmt.Sprintf("(?i)(ON\\s+%s|')", spt.RegexpString())
+					objectDBTBLStr := strings.Split(strings.TrimSpace(regexp.MustCompile(objectDBTBLRegexpStr).ReplaceAllString(objectStr, "")), ".")
+					ap.Authorize.ObjectDBName = objectDBTBLStr[0]
+					ap.Authorize.ObjectTBLName = objectDBTBLStr[1]
+				}
+			case MaskingPolicy, RowAccessPolicy:
+				objectNameRegexpStr := fmt.Sprintf("(?i)ON\\s+ALL\\s+%s", policiesRegexp)
+				objectNameCompile := regexp.MustCompile(objectNameRegexpStr)
+				if objectNameCompile.MatchString(objectStr) {
+					ap.Authorize.ObjectName = fmt.Sprintf("ALL %s", policies)
+					objectDBNameStr := objectNameCompile.ReplaceAllString(objectStr, "")
+					if regexp.MustCompile("(?i)ALL\\s+DATABASES").MatchString(objectDBNameStr) {
+						ap.Authorize.ObjectDBName = "ALL DATABASES"
+					} else {
+						objectDBCompile := regexp.MustCompile("(?i)(IN\\s+DATABASE|')")
+						ap.Authorize.ObjectDBName = strings.TrimSpace(objectDBCompile.ReplaceAllString(objectDBNameStr, ""))
+					}
+				} else {
+					objectDBNameCompile := regexp.MustCompile("(?i)\\s+IN\\s.*$")
+					objectDBNameStr := objectDBNameCompile.FindAllString(objectStr, -1)[0]
+					if regexp.MustCompile("(?i)ALL\\s+DATABASES").MatchString(objectDBNameStr) {
+						ap.Authorize.ObjectDBName = "ALL DATABASES"
+					} else {
+						objectDBCompile := regexp.MustCompile("(?i)(IN\\s+DATABASE|')")
+						ap.Authorize.ObjectDBName = strings.TrimSpace(objectDBCompile.ReplaceAllString(objectDBNameStr, ""))
+					}
+					objectNameStr := objectDBNameCompile.ReplaceAllString(objectStr, "")
+					objectNameCompile = regexp.MustCompile(fmt.Sprintf("(?i)(ON\\s+%s|')", spt.RegexpString()))
+					ap.Authorize.ObjectName = strings.TrimSpace(objectNameCompile.ReplaceAllString(objectNameStr, ""))
+				}
+			case Database:
+				if regexp.MustCompile(fmt.Sprintf("(?i)ON\\s+ALL\\s+%sS", spt.RegexpString())).MatchString(objectStr) {
+					ap.Authorize.ObjectDBName = fmt.Sprintf("ALL %sS", sptName)
+				} else {
+					objectDBNameCompile := regexp.MustCompile(fmt.Sprintf("(?i)(ON\\s+%s|')", spt.RegexpString()))
+					ap.Authorize.ObjectDBName = strings.TrimSpace(objectDBNameCompile.ReplaceAllString(objectStr, ""))
+				}
+			default:
+				if regexp.MustCompile(fmt.Sprintf("(?i)ON\\s+ALL\\s+%sS", spt.RegexpString())).MatchString(objectStr) {
+					ap.Authorize.ObjectName = fmt.Sprintf("ALL %sS", sptName)
+				} else {
+					objectNameCompile := regexp.MustCompile(fmt.Sprintf("(?i)(ON\\s+%s|')", spt.RegexpString()))
+					ap.Authorize.ObjectName = strings.TrimSpace(objectNameCompile.ReplaceAllString(objectStr, ""))
 				}
 			}
 			return
@@ -115,17 +164,18 @@ func (ap *AuthorizeParse) getObject() {
 func (ap *AuthorizeParse) getPermissions() {
 	switch ap.Authorize.ObjectType {
 	case "ROLE":
-		split := strings.Split(strings.ReplaceAll(ap.as, "'", ""), ",")
-		for _, i := range split {
+		permissionList := strings.Split(strings.ReplaceAll(ap.as, "'", ""), ",")
+		for _, i := range permissionList {
 			ap.Authorize.Permissions = append(ap.Authorize.Permissions, strings.TrimSpace(i))
 		}
 	default:
-		for _, ptn := range permissionNames {
-			regexpStr := fmt.Sprintf("(?i)\\s+%s(,)?", ptn)
-			compile := regexp.MustCompile(regexpStr)
-			if matchString := compile.MatchString(ap.as); matchString {
-				ap.Authorize.Permissions = append(ap.Authorize.Permissions, ptn)
-				ap.as = compile.ReplaceAllString(ap.as, " ")
+		for spIndex, spName := range starRocksPermissionNames {
+			sp := StarRocksPermission(spIndex)
+			permissionRegexpStr := fmt.Sprintf("(?i)\\s+%s(,)?", sp.RegexpString())
+			permissionCompile := regexp.MustCompile(permissionRegexpStr)
+			if permissionCompile.MatchString(ap.as) {
+				ap.Authorize.Permissions = append(ap.Authorize.Permissions, spName)
+				ap.as = permissionCompile.ReplaceAllString(ap.as, " ")
 			}
 		}
 	}

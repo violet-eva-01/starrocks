@@ -23,6 +23,12 @@ const (
 	Usage
 	All
 	Impersonate
+	Apply
+	CreateMaskingPolicy
+	CreateRowAccessPolicy
+	CreatePipe
+	CreateWarehouse
+	Security
 	CreateDatabase
 	CreateTable
 	CreateView
@@ -36,10 +42,9 @@ const (
 	Drop
 	Update
 	Delete
-	Truncate
 )
 
-var permissionNames = []string{
+var starRocksPermissionNames = []string{
 	"GRANT",
 	"NODE",
 	"CREATE RESOURCE GROUP",
@@ -55,6 +60,12 @@ var permissionNames = []string{
 	"USAGE",
 	"ALL",
 	"IMPERSONATE",
+	"APPLY",
+	"CREATE MASKING POLICY",
+	"CREATE ROW ACCESS POLICY",
+	"CREATE PIPE",
+	"CREATE WAREHOUSE",
+	"SECURITY",
 	"CREATE DATABASE",
 	"CREATE TABLE",
 	"CREATE VIEW",
@@ -72,7 +83,7 @@ var permissionNames = []string{
 
 func ParsePermissionName(str string) StarRocksPermission {
 
-	index := util.FindIndex(strings.ToUpper(str), permissionNames)
+	index := util.FindIndex(strings.ToUpper(str), starRocksPermissionNames)
 	if index == -1 {
 		return -1
 	} else {
@@ -83,10 +94,17 @@ func ParsePermissionName(str string) StarRocksPermission {
 
 func (sp StarRocksPermission) String() string {
 
-	if sp >= CreateResourceGroup && sp <= Delete {
-		return permissionNames[sp]
+	if sp >= Grant && sp <= Delete {
+		return starRocksPermissionNames[sp]
 	}
 
+	return "nil"
+}
+
+func (sp StarRocksPermission) RegexpString() string {
+	if sp >= Grant && sp <= Delete {
+		return strings.ReplaceAll(starRocksPermissionNames[sp], " ", "\\s+")
+	}
 	return "nil"
 }
 
@@ -94,6 +112,7 @@ type StarRocksPermissionType int
 
 const (
 	System StarRocksPermissionType = iota
+	Warehouse
 	ResourceGroup
 	Resource
 	User
@@ -101,14 +120,17 @@ const (
 	Function
 	Catalog
 	StorageVolume
+	MaskingPolicy
+	RowAccessPolicy
 	Database
 	Table
 	MaterializedView
 	View
 )
 
-var permissionTypeNames = []string{
+var starRocksPermissionTypeNames = []string{
 	"SYSTEM",
+	"WAREHOUSE",
 	"RESOURCE GROUP",
 	"RESOURCE",
 	"USER",
@@ -116,6 +138,8 @@ var permissionTypeNames = []string{
 	"FUNCTION",
 	"CATALOG",
 	"STORAGE VOLUME",
+	"MASKING POLICY",
+	"ROW ACCESS POLICY",
 	"DATABASE",
 	"TABLE",
 	"MATERIALIZED VIEW",
@@ -124,13 +148,20 @@ var permissionTypeNames = []string{
 
 func (spt StarRocksPermissionType) String() string {
 	if spt >= System && spt <= View {
-		return permissionTypeNames[spt]
+		return starRocksPermissionTypeNames[spt]
+	}
+	return "nil"
+}
+
+func (spt StarRocksPermissionType) RegexpString() string {
+	if spt >= System && spt <= View {
+		return strings.ReplaceAll(starRocksPermissionTypeNames[spt], " ", "\\s+")
 	}
 	return "nil"
 }
 
 func ParsePermissionTypeName(str string) StarRocksPermissionType {
-	index := util.FindIndex(strings.ToUpper(str), permissionTypeNames)
+	index := util.FindIndex(strings.ToUpper(str), starRocksPermissionTypeNames)
 	if index == -1 {
 		return -1
 	} else {
